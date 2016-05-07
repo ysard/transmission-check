@@ -4,6 +4,8 @@
 // On pourrait aussi ajouter libnatpmp, miniupnp au lieu d'installer libnatpmp-dev  sur le système
 //gcc -Wall -Wextra -L./lib -L./include/dht -L./include/libutp -I./include src/main.c -o main -ltransmission -lz -levent -lpthread -lssl -lcrypto -lcurl -lnatpmp -lminiupnpc -lutp -ldht
 
+// Fix "stat: Value too large for defined data type"
+#define _FILE_OFFSET_BITS 64
 #include <locale.h>
 #include <signal.h>
 #include <string.h>
