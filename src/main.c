@@ -259,7 +259,7 @@ void check_dates(tr_variant * top, char ** full_path, bool make_changes)
             // temps exec / added date => file ?? modif...
             if (make_changes) {
                 tr_variantDictAddInt(top, TR_KEY_added_date, sb.st_mtime);
-                printf("REPAIR: Erroneous added date: Updated to modification date: %s", ctime(&i));
+                printf("REPAIR: Erroneous added date: Updated to modification date: %s", ctime((time_t*)&i));
 
                 nb_repaired_inconsistencies++;
             } else {
@@ -277,7 +277,7 @@ void check_dates(tr_variant * top, char ** full_path, bool make_changes)
             // temps exec / done date => file modif
             if (make_changes) {
                 tr_variantDictAddInt(top, TR_KEY_added_date, sb.st_mtime);
-                printf("REPAIR: Erroneous done date: Updated to modification date: %s", ctime(&i));
+                printf("REPAIR: Erroneous done date: Updated to modification date: %s", ctime((time_t*)&i));
 
                 nb_repaired_inconsistencies++;
             } else {
@@ -290,7 +290,7 @@ void check_dates(tr_variant * top, char ** full_path, bool make_changes)
     if (tr_variantDictFindInt (top, TR_KEY_activity_date, &i))
     {
         instant=*localtime((time_t*)&i);
-        printf("TR_KEY_activity_date %s \b%" PRIu64 "\n", ctime(&i), i);
+        printf("TR_KEY_activity_date %s \b%" PRIu64 "\n", ctime((time_t*)&i), i);
     }*/
 }
 
