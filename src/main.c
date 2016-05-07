@@ -366,8 +366,7 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
     }
 
 
-    fprintf(stderr, "REPAIR: Resume file does not point to the correct file/directory !\n");
-
+    printf("REPAIR: Resume file does not point to the correct file/directory !\n");
     printf("REPAIR: Trying to resolve inconsistencies...\n");
 
 
@@ -692,12 +691,12 @@ void read_resume_file(tr_variant * top)
      */
 
     tr_variant * list;
-    printf("ICIIII\n");
+
     if (tr_variantDictFindList (top, TR_KEY_files, &list))
     {
         size_t i;
         const size_t n = tr_variantListSize (list);
-        printf("TR_KEY_files ici\n");
+        printf("TR_KEY_files found\n");
 
         for (i=0; i<n; ++i)
         {
