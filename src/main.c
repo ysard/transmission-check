@@ -319,6 +319,9 @@ void check_sizes(tr_variant * top, char ** full_path, bool make_changes)
 
 void reset_peers(tr_variant * top)
 {
+    /* Reset peers in resume file.
+     */
+
     size_t len;
     const uint8_t * str_8;
 
@@ -448,6 +451,57 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
         } else {
             fprintf (stderr, "ERROR: Insufficient memory\n\n");
             exit(EXIT_FAILURE);
+        }
+    }
+}
+
+
+void replace_dir(tr_variant * top, const char old[], const char new[])
+{
+    /* Replace old substring in path by the new string
+     */
+
+    size_t len;
+    const char * str;
+    char * start = NULL;
+    char * new_path = NULL;
+
+
+    // Concatenate paths dynamically.
+    if (tr_variantDictFindStr (top, TR_KEY_destination, &str, &len)) {
+
+        start = strstr(str, old);
+        /*printf("%s\n", str);
+         *
+         *       printf("addr: %d %c\n", start, *start);
+         *       printf("case 0 %d, %c\n", str, str[0]);
+         *       printf("addr+1: %d, %c\n", start+1, *(start+1));
+         *       printf("last addr: %d, %c\n", start+strlen(old), *(start+strlen(old)));
+         *       printf("diff %d\n", strlen(str) - strlen(old) + strlen(new) + 1);*/
+
+        if(start) {
+
+            size_t prefix_length = start - str;
+            char * suffix_start_addr = start + strlen(old);
+            // char * suffix_end_addr = str + strlen(str);
+
+            new_path = calloc((strlen(str) - strlen(old) + strlen(new) + 1), sizeof(*new_path));
+
+            if (new_path) {
+                // Add prefix
+                strncpy(new_path, str, prefix_length);
+                // Add new string
+                strcat(new_path, new);
+                // Add suffix
+                strcat(new_path, suffix_start_addr);
+
+                // Update the resume file
+                tr_variantDictAddStr(top, TR_KEY_destination, new_path);
+                printf("UPDATE: New path: %s\n", new_path);
+
+                nb_repaired_inconsistencies++;
+                free(new_path);
+            }
         }
     }
 }
@@ -691,7 +745,6 @@ int main (int argc, char ** argv)
     if (parseCommandLine (argc, (const char**)argv))
         return EXIT_FAILURE;
 
-    printf("%d, %d, %s, %s, %s\n", showVersion, make_changes, resume_file, replace[0], replace[1]);
 
     if (showVersion)
     {
@@ -706,7 +759,7 @@ int main (int argc, char ** argv)
         fprintf (stderr, "\n");
         return EXIT_FAILURE;
     }
-
+/*
     if (make_changes && (replace[0] != NULL))
     {
         fprintf (stderr, "ERROR: Must specify -m or -r\n");
@@ -714,7 +767,7 @@ int main (int argc, char ** argv)
         fprintf (stderr, "\n");
         return EXIT_FAILURE;
     }
-
+*/
 
     char * resume_filename = NULL;
     tr_variant top;
@@ -731,13 +784,20 @@ int main (int argc, char ** argv)
         exit(EXIT_FAILURE);
     }
 
-    // Load infos from resume file
-    if (verbose)
+    // Load infos from resume file & show parameters
+    if (verbose) {
+        printf("Parameters: show version: %d, make changes: %d, resume file: %s,  replace old: %s, replace new: %s\n",
+               showVersion, make_changes, resume_file, replace[0], replace[1]);
         read_resume_file(&top);
+    }
 
-    // Repair attempts
-    repair_resume_file(&top, resume_filename, make_changes);
-
+    if (replace[0] == NULL) {
+        // Repair attempts
+        repair_resume_file(&top, resume_filename, make_changes);
+    } else {
+        // Replace directory
+        replace_dir(&top, replace[0], replace[1]);
+    }
 
     // Write the resume file if inconsistencies are repaired, and if changes are allowed
     if (nb_repaired_inconsistencies > 0 && make_changes && (err = tr_variantToFile(&top, TR_VARIANT_FMT_BENC, resume_file)))
