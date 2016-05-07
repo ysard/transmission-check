@@ -250,7 +250,7 @@ void check_dates(tr_variant * top, char ** full_path, bool make_changes)
 
     if (tr_variantDictFindInt (top, TR_KEY_added_date, &i))
     {
-        instant = *localtime(&i);
+        instant = *localtime((time_t*)&i);
         //printf("TR_KEY_added_date %s %" PRIu64 "\n", ctime(&i), i);
 
         if (instant.tm_year + 1900 == 1970) {
@@ -268,7 +268,7 @@ void check_dates(tr_variant * top, char ** full_path, bool make_changes)
 
     if (tr_variantDictFindInt (top, TR_KEY_done_date, &i))
     {
-        instant = *localtime(&i);
+        instant = *localtime((time_t*)&i);
         //printf("TR_KEY_done_date %s %" PRIu64 "\n", ctime(&i), i);
 
         if (instant.tm_year + 1900 == 1970) {
@@ -287,7 +287,7 @@ void check_dates(tr_variant * top, char ** full_path, bool make_changes)
     /*
     if (tr_variantDictFindInt (top, TR_KEY_activity_date, &i))
     {
-        instant=*localtime(&i);
+        instant=*localtime((time_t*)&i);
         printf("TR_KEY_activity_date %s \b%" PRIu64 "\n", ctime(&i), i);
     }*/
 }
