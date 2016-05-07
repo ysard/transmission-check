@@ -194,40 +194,42 @@ void get_uploaded_files_path(tr_variant * top, char ** full_path)
 
         *full_path = malloc(len * sizeof(**full_path) + 1);
 
-        strcpy(*full_path, str);
-        //printf("dir path: %s, %zu\n", *full_path, strlen(*full_path));
+        if (*full_path) {
+            strcpy(*full_path, str);
+            //printf("dir path: %s, %zu\n", *full_path, strlen(*full_path));
 
-        if (tr_variantDictFindStr (top, TR_KEY_name, &str, &len))
-        {
-            //printf("TR_KEY_name %s, %zu\n", str, len);
+            if (tr_variantDictFindStr (top, TR_KEY_name, &str, &len))
+            {
+                //printf("TR_KEY_name %s, %zu\n", str, len);
 
-            // Temp pointer
-            tmp_ptr = realloc(*full_path, strlen(*full_path) + len + 2);
+                // Temp pointer
+                tmp_ptr = realloc(*full_path, strlen(*full_path) + len + 2);
 
-            if(tmp_ptr == NULL){
-                free(*full_path);    //Deallocation
+                if (tmp_ptr == NULL) {
+                    free(*full_path);    //Deallocation
+                    exit(EXIT_FAILURE);
+                } else {
+                    *full_path = tmp_ptr;
+                }
+
+                strcat(*full_path, "/");
+                strcat(*full_path, str);
+
+                //printf("full path: %s\n", *full_path);
+                return;
+
+            } else {
+                fprintf(stderr, "ERROR: Resume file: TR_KEY_name could not be read !\n");
+
+                // On error, deallocate the memory
+                free(*full_path);
                 exit(EXIT_FAILURE);
-            } else{
-                *full_path = tmp_ptr;
             }
-
-            strcat(*full_path, "/");
-            strcat(*full_path, str);
-
-            //printf("full path: %s\n", *full_path);
-            return;
-
-        } else {
-            fprintf(stderr, "ERROR: Resume file: TR_KEY_name could not be read !\n");
         }
 
     } else {
         fprintf(stderr, "ERROR: Resume file: TR_KEY_destination could not be read !\n");
     }
-
-    // On error, deallocate the memory
-    free(*full_path);
-    exit(EXIT_FAILURE);
 }
 
 
@@ -396,7 +398,7 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
                 // 0 to x included, where x is the position of the first character of the suffix
                 inferred_file = malloc (sizeof (*inferred_file) * (start));
 
-                if (inferred_file != NULL) {
+                if (inferred_file) {
                     strncpy(inferred_file, &resume_filename[0], start);
                     inferred_file[start] = '\0';
                     printf("REPAIR: Inferred file: %s\n", inferred_file);
@@ -635,13 +637,13 @@ void repair_resume_file(tr_variant * top, char resume_filename[], bool make_chan
 {
 
 
-    printf("\n\n==============================\n");
+    printf("\n==============================\n");
     printf("        Repair attempts       \n");
     printf("==============================\n\n");
 
 
 
-    char * full_path;
+    char * full_path = NULL;
     get_uploaded_files_path(top, &full_path);
     printf("Full path: %s\n", full_path);
 
@@ -660,8 +662,10 @@ void repair_resume_file(tr_variant * top, char resume_filename[], bool make_chan
         reset_peers(top);
     //check_sizes(&top, &full_path, make_changes);
 
-
-    printf("Repaired inconsistencies: %d\n", nb_repaired_inconsistencies);
+    if (make_changes)
+        printf("Repaired inconsistencies: %d\n", nb_repaired_inconsistencies);
+    else
+        printf("Repaired inconsistencies: 0\n");
 
     // Free memory
     free(full_path);
