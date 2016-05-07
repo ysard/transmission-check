@@ -229,6 +229,9 @@ void get_uploaded_files_path(tr_variant * top, char ** full_path)
                 free(*full_path);
                 exit(EXIT_FAILURE);
             }
+        } else {
+            fprintf (stderr, "ERROR: Insufficient memory\n\n");
+            exit(EXIT_FAILURE);
         }
 
     } else {
@@ -237,7 +240,7 @@ void get_uploaded_files_path(tr_variant * top, char ** full_path)
 }
 
 
-void check_dates(tr_variant * top, char ** full_path, bool make_changes)
+void check_dates(tr_variant * top, char ** full_path, bool force_date_update, bool make_changes)
 {
     /* Try to resolve date problems (incorrect/corrupted dates)
      * On error => update the field with last file modification date.
@@ -268,7 +271,8 @@ void check_dates(tr_variant * top, char ** full_path, bool make_changes)
         instant = *localtime((time_t*)&i);
         //printf("TR_KEY_added_date %s %" PRIu64 "\n", ctime(&i), i);
 
-        if (instant.tm_year + 1900 == 1970) {
+        // Change date if it is Erroneous or if force_date_update is set to true
+        if ((instant.tm_year + 1900 == 1970) || force_date_update) {
             // temps exec / added date => file ?? modif...
             if (make_changes) {
                 tr_variantDictAddInt(top, TR_KEY_added_date, sb.st_mtime);
@@ -286,7 +290,8 @@ void check_dates(tr_variant * top, char ** full_path, bool make_changes)
         instant = *localtime((time_t*)&i);
         //printf("TR_KEY_done_date %s %" PRIu64 "\n", ctime(&i), i);
 
-        if (instant.tm_year + 1900 == 1970) {
+        // Change date if it is Erroneous or if force_date_update is set to true
+        if (instant.tm_year + 1900 == 1970 || force_date_update) {
             // temps exec / done date => file modif
             if (make_changes) {
                 tr_variantDictAddInt(top, TR_KEY_added_date, sb.st_mtime);
@@ -337,7 +342,7 @@ void reset_peers(tr_variant * top)
         tr_variantDictAddRaw (top, TR_KEY_peers2_6, NULL, 0);
     }
 
-    printf("REPAIR: Peers cleared.");
+    printf("REPAIR: Peers cleared.\n");
 }
 
 
@@ -420,6 +425,9 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
 
                     // Deallocate memory
                     free(inferred_file);
+                } else {
+                    fprintf (stderr, "ERROR: Insufficient memory\n\n");
+                    exit(EXIT_FAILURE);
                 }
 
             } else if (match == REG_NOMATCH) {
@@ -501,7 +509,12 @@ void replace_dir(tr_variant * top, const char old[], const char new[])
 
                 nb_repaired_inconsistencies++;
                 free(new_path);
+            } else {
+                fprintf (stderr, "ERROR: Insufficient memory\n\n");
+                exit(EXIT_FAILURE);
             }
+        } else {
+            fprintf(stderr, "ERROR: Substring '%s' not found in '%s'\n", old, str);
         }
     }
 }
@@ -679,7 +692,7 @@ void read_resume_file(tr_variant * top)
      */
 
     tr_variant * list;
-
+    printf("ICIIII\n");
     if (tr_variantDictFindList (top, TR_KEY_files, &list))
     {
         size_t i;
@@ -708,21 +721,26 @@ void repair_resume_file(tr_variant * top, char resume_filename[], bool make_chan
     printf("==============================\n\n");
 
 
-
+    bool force_date_update = false;
     char * full_path = NULL;
     get_uploaded_files_path(top, &full_path);
     printf("Full path: %s\n", full_path);
 
+    // Verify if file/directory of the torrent matches the resume filename
     check_correct_files_pointed(top, resume_filename);
 
+    // Here we know if pointed files were ok or not (nb_repaired_inconsistencies > 0)
+    // If not, we update the full path and plan to force the update of dates
+    // with the dates of the new directory
     if (nb_repaired_inconsistencies > 0) {
         free(full_path);
         get_uploaded_files_path(top, &full_path);
         printf("REPAIR: New full path: %s\n", full_path);
+        force_date_update = true;
     }
 
     check_uploaded_files(&full_path);
-    check_dates(top, &full_path, make_changes);
+    check_dates(top, &full_path, force_date_update, make_changes);
 
     // If there are inconsistencies, the file is corrupted => cleaning step
     if ((nb_repaired_inconsistencies > 0) && make_changes)
@@ -732,7 +750,7 @@ void repair_resume_file(tr_variant * top, char resume_filename[], bool make_chan
     if (make_changes)
         printf("Repaired inconsistencies: %d\n", nb_repaired_inconsistencies);
     else
-        printf("Repaired inconsistencies: 0\n\n");
+        printf("Repaired inconsistencies: 0\n");
 
     // Free memory
     free(full_path);
@@ -759,22 +777,13 @@ int main (int argc, char ** argv)
         fprintf (stderr, "\n");
         return EXIT_FAILURE;
     }
-/*
-    if (make_changes && (replace[0] != NULL))
-    {
-        fprintf (stderr, "ERROR: Must specify -m or -r\n");
-        tr_getopt_usage (MY_NAME, getUsage (), options);
-        fprintf (stderr, "\n");
-        return EXIT_FAILURE;
-    }
-*/
+
 
     char * resume_filename = NULL;
     tr_variant top;
     int err;
-
-    // cast to non-const
-    resume_filename = basename((char*)resume_file);
+    // Get the basename of the resume file
+    resume_filename = basename((char*)resume_file); // cast to non-const
     //printf("resume file: %s\n", resume_filename);
 
     // Load the resume file in memory
@@ -784,6 +793,7 @@ int main (int argc, char ** argv)
         exit(EXIT_FAILURE);
     }
 
+
     // Load infos from resume file & show parameters
     if (verbose) {
         printf("Parameters: show version: %d, make changes: %d, resume file: %s,  replace old: %s, replace new: %s\n",
@@ -791,6 +801,7 @@ int main (int argc, char ** argv)
         read_resume_file(&top);
     }
 
+    // Repair or replace directory ?
     if (replace[0] == NULL) {
         // Repair attempts
         repair_resume_file(&top, resume_filename, make_changes);
@@ -799,10 +810,17 @@ int main (int argc, char ** argv)
         replace_dir(&top, replace[0], replace[1]);
     }
 
+
     // Write the resume file if inconsistencies are repaired, and if changes are allowed
-    if (nb_repaired_inconsistencies > 0 && make_changes && (err = tr_variantToFile(&top, TR_VARIANT_FMT_BENC, resume_file)))
+    if (nb_repaired_inconsistencies > 0 && make_changes)
     {
-        fprintf(stderr, "ERROR: While saving the new .resume file\n");
+        if ((err = tr_variantToFile(&top, TR_VARIANT_FMT_BENC, resume_file)))
+            fprintf(stderr, "ERROR: While saving the new .resume file\n");
+        else
+            printf("The file was successfully modified.\n");
+
+    } else {
+        printf("The file remains untouched.\n");
     }
 
     // Free memory
