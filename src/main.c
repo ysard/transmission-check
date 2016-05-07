@@ -704,7 +704,7 @@ int main (int argc, char ** argv)
     //printf("resume file: %s\n", resume_filename);
 
     // Load the resume file in memory
-    if (tr_variantFromFile (&top, TR_VARIANT_FMT_BENC, resume_filename))
+    if (tr_variantFromFile (&top, TR_VARIANT_FMT_BENC, resume_file))
     {
         fprintf(stderr, "ERROR: Resume file could not be opened !\n");
         exit(EXIT_FAILURE);
@@ -718,7 +718,7 @@ int main (int argc, char ** argv)
 
 
     // Write the resume file if inconsistencies are repaired, and if changes are allowed
-    if (nb_repaired_inconsistencies > 0 && make_changes && (err = tr_variantToFile(&top, TR_VARIANT_FMT_BENC, resume_filename)))
+    if (nb_repaired_inconsistencies > 0 && make_changes && (err = tr_variantToFile(&top, TR_VARIANT_FMT_BENC, resume_file)))
     {
         fprintf(stderr, "ERROR: While saving the new .resume file\n");
     }
