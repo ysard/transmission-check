@@ -42,13 +42,15 @@ static int nb_repaired_inconsistencies = 0;
 // Parameters
 static bool make_changes = false;
 static bool showVersion = false;
+static bool verbose = false;
 static const char * resume_file = NULL;
 static const char * replace[2] = { NULL, NULL };
 
 static tr_option options[] =
 {
     { 'm', "make-changes", "Make changes on resume file", "m", 0, NULL },
-    { 'r', "replace", "Search and replace a substring in the file paths", "r", 1, "<old> <new>" },
+    { 'r', "replace", "Search and replace a substring in the filepath", "r", 1, "<old> <new>" },
+    { 'v', "verbose", "Display informations about resume file", "v", 0, NULL },
     { 'V', "version", "Show version number and exit", "V", 0, NULL },
     { 0, NULL, NULL, NULL, 0, NULL }
 };
@@ -79,6 +81,10 @@ static int parseCommandLine (int argc, const char ** argv)
                 if (c != TR_OPT_UNK)
                     return 1;
                 replace[1] = optarg;
+                break;
+
+            case 'v':
+                verbose = true;
                 break;
 
             case 'V':
@@ -709,7 +715,8 @@ int main (int argc, char ** argv)
     }
 
     // Load infos from resume file
-    read_resume_file(&top);
+    if (verbose)
+        read_resume_file(&top);
 
     // Repair attempts
     repair_resume_file(&top, resume_filename, make_changes);
