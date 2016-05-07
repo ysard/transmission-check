@@ -165,11 +165,13 @@ void check_uploaded_files(char ** full_path)
 
         if (err == -1) {
             perror("ftw");
+            free(full_path);
             exit(EXIT_FAILURE);
         }
 
     } else {
         fprintf(stderr, "ERROR: Uploaded file/directory '%s' not found !\n", *full_path);
+        free(*full_path);
         exit(EXIT_FAILURE);
     }
 
@@ -192,7 +194,7 @@ void get_uploaded_files_path(tr_variant * top, char ** full_path)
     {
         //printf("TR_KEY_destination %s, %zu\n", str, len);
 
-        *full_path = malloc(len * sizeof(**full_path) + 1);
+        *full_path = malloc((len + 1) * sizeof(**full_path));
 
         if (*full_path) {
             strcpy(*full_path, str);
@@ -203,17 +205,19 @@ void get_uploaded_files_path(tr_variant * top, char ** full_path)
                 //printf("TR_KEY_name %s, %zu\n", str, len);
 
                 // Temp pointer
-                tmp_ptr = realloc(*full_path, strlen(*full_path) + len + 2);
+                // length of previous string + length of added string + length if '/' + '\0'
+                tmp_ptr = realloc(*full_path, (strlen(*full_path) + len + 2) * sizeof(**full_path));
 
                 if (tmp_ptr == NULL) {
-                    free(*full_path);    //Deallocation
+                    // Free memory
+                    free(*full_path);
                     exit(EXIT_FAILURE);
                 } else {
                     *full_path = tmp_ptr;
                 }
 
                 strcat(*full_path, "/");
-                strcat(*full_path, str);
+                strncat(*full_path, str, len);
 
                 //printf("full path: %s\n", *full_path);
                 return;
@@ -249,6 +253,7 @@ void check_dates(tr_variant * top, char ** full_path, bool make_changes)
 
     if(err == -1) {
         perror("stat");
+        free(*full_path);
         exit(EXIT_FAILURE);
     }
 
@@ -353,7 +358,7 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
     }
 
 
-    fprintf(stderr, "Resume file does not point to the correct file/directory !\n");
+    fprintf(stderr, "REPAIR: Resume file does not point to the correct file/directory !\n");
 
     printf("REPAIR: Trying to resolve inconsistencies...\n");
 
@@ -395,12 +400,15 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
                 */
 
                 //printf("suffix found at position %d\n", start);
+                //printf("%s\n", resume_filename);
+
                 // 0 to x included, where x is the position of the first character of the suffix
-                inferred_file = malloc (sizeof (*inferred_file) * (start));
+                inferred_file = malloc (sizeof (*inferred_file) * (start + 1));
 
                 if (inferred_file) {
                     strncpy(inferred_file, &resume_filename[0], start);
                     inferred_file[start] = '\0';
+
                     printf("REPAIR: Inferred file: %s\n", inferred_file);
 
                     // Update the resume file
@@ -426,6 +434,8 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
 
                     regerror (err, &preg, text, size);
                     fprintf (stderr, "ERROR: Regex: %s\n", text);
+
+                    // Free memory
                     free(text);
 
                 } else {
@@ -433,6 +443,8 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
                     exit(EXIT_FAILURE);
                 }
             }
+            // Free memory
+            free(pmatch);
         } else {
             fprintf (stderr, "ERROR: Insufficient memory\n\n");
             exit(EXIT_FAILURE);
@@ -650,6 +662,7 @@ void repair_resume_file(tr_variant * top, char resume_filename[], bool make_chan
     check_correct_files_pointed(top, resume_filename);
 
     if (nb_repaired_inconsistencies > 0) {
+        free(full_path);
         get_uploaded_files_path(top, &full_path);
         printf("REPAIR: New full path: %s\n", full_path);
     }
@@ -665,7 +678,7 @@ void repair_resume_file(tr_variant * top, char resume_filename[], bool make_chan
     if (make_changes)
         printf("Repaired inconsistencies: %d\n", nb_repaired_inconsistencies);
     else
-        printf("Repaired inconsistencies: 0\n");
+        printf("Repaired inconsistencies: 0\n\n");
 
     // Free memory
     free(full_path);
