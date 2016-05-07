@@ -323,7 +323,7 @@ void reset_peers(tr_variant * top)
 }
 
 
-void check_correct_files_pointed(tr_variant * top, const char resume_filename[], bool make_changes)
+void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
 {
     size_t len;
     int err = 0;
@@ -344,10 +344,6 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[],
 
 
     fprintf(stderr, "Resume file does not point to the correct file/directory !\n");
-
-
-    if (make_changes == 0)
-        return;
 
     printf("REPAIR: Trying to resolve inconsistencies...\n");
 
@@ -641,7 +637,7 @@ void repair_resume_file(tr_variant * top, char resume_filename[], bool make_chan
     get_uploaded_files_path(top, &full_path);
     printf("Full path: %s\n", full_path);
 
-    check_correct_files_pointed(top, resume_filename, make_changes);
+    check_correct_files_pointed(top, resume_filename);
 
     if (nb_repaired_inconsistencies > 0) {
         get_uploaded_files_path(top, &full_path);
