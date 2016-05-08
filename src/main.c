@@ -1,17 +1,30 @@
+/*
+This file is part of transmission-check.
 
-//gcc -Wall -Wextra -L./lib -I./include src/main.c -o main -ltransmission
-//gcc -Wall -Wextra -L./lib -I./include src/main.c -o main -ltransmission -lz -levent -lpthread -lssl -lcrypto -lcurl
-// On pourrait aussi ajouter libnatpmp, miniupnp au lieu d'installer libnatpmp-dev  sur le système
-//gcc -Wall -Wextra -L./lib -L./include/dht -L./include/libutp -I./include src/main.c -o main -ltransmission -lz -levent -lpthread -lssl -lcrypto -lcurl -lnatpmp -lminiupnpc -lutp -ldht
+transmission-check is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+transmission-check is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with transmission-check.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright 2016 Ysard
+*/
 
 // Fix "stat: Value too large for defined data type"
 #define _FILE_OFFSET_BITS 64
 #include <locale.h>
 #include <signal.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h> // exit()
-#include <time.h>
+#include <string.h> // strlen(), strstr(), strcmp()
+#include <stdio.h> // fprintf(), printf()
+#include <stdlib.h> // exit(), EXIT_FAILURE, EXIT_SUCCESS
+#include <time.h> // ctime(), localtime()
 // uint64_t on printf()
 // http://en.cppreference.com/w/cpp/types/integer
 #include <inttypes.h>
