@@ -69,34 +69,34 @@ static int parseCommandLine (int argc, const char ** argv)
     {
         switch (c)
         {
-            case 'm':
-                make_changes = true;
-                break;
+        case 'm':
+            make_changes = true;
+            break;
 
-            case 'r':
-                replace[0] = optarg;
-                c = tr_getopt (getUsage (), argc, argv, options, &optarg);
-                if (c != TR_OPT_UNK)
-                    return 1;
-                replace[1] = optarg;
-                break;
-
-            case 'v':
-                verbose = true;
-                break;
-
-            case 'V':
-                showVersion = true;
-                break;
-
-            case TR_OPT_UNK:
-                if (resume_file != NULL)
-                    return 1;
-                resume_file = optarg;
-                break;
-
-            default:
+        case 'r':
+            replace[0] = optarg;
+            c = tr_getopt (getUsage (), argc, argv, options, &optarg);
+            if (c != TR_OPT_UNK)
                 return 1;
+            replace[1] = optarg;
+            break;
+
+        case 'v':
+            verbose = true;
+            break;
+
+        case 'V':
+            showVersion = true;
+            break;
+
+        case TR_OPT_UNK:
+            if (resume_file != NULL)
+                return 1;
+            resume_file = optarg;
+            break;
+
+        default:
+            return 1;
         }
     }
 
@@ -129,10 +129,10 @@ int is_file_or_dir_exists(const char *path)
 
     // directory : info.st_mode & S_IFDIR
     switch (info.st_mode & S_IFMT) {
-        case S_IFDIR:  printf("Directory found... ");        return 1;
-        case S_IFLNK:  printf("Symlink found... ");          return 2;
-        case S_IFREG:  printf("Regular file found... ");     return 3;
-        default:       printf("Unknown type?\n");            return 0;
+    case S_IFDIR:  printf("Directory found... ");        return 1;
+    case S_IFLNK:  printf("Symlink found... ");          return 2;
+    case S_IFREG:  printf("Regular file found... ");     return 3;
+    default:       printf("Unknown type?\n");            return 0;
     }
 
     return 0;
@@ -189,7 +189,7 @@ void get_uploaded_files_path(tr_variant * top, char ** full_path)
 
     // Concatenate paths dynamically.
     if ((tr_variantDictFindStr (top, TR_KEY_destination, &str, &len))
-        && (str && *str))
+            && (str && *str))
     {
         //printf("TR_KEY_destination %s, %zu\n", str, len);
 
@@ -478,7 +478,9 @@ void replace_dir(tr_variant * top, const char old[], const char new[])
 
 
     // Concatenate paths dynamically.
-    if (tr_variantDictFindStr (top, TR_KEY_destination, &str, &len)) {
+    if ((tr_variantDictFindStr (top, TR_KEY_destination, &str, &len))
+            && (str && *str))
+    {
 
         start = strstr(str, old);
         /* printf("original dest: %s\n", str);
@@ -541,13 +543,13 @@ void read_resume_file(tr_variant * top)
 
     // Directories/files
     if ((tr_variantDictFindStr (top, TR_KEY_destination, &str, &len))
-        && (str && *str))
+            && (str && *str))
     {
         printf("TR_KEY_destination %s\n", str);
     }
 
     if ((tr_variantDictFindStr (top, TR_KEY_incomplete_dir, &str, &len))
-        && (str && *str))
+            && (str && *str))
     {
         printf("TR_KEY_incomplete_dir %s\n", str);
     }
@@ -611,7 +613,7 @@ void read_resume_file(tr_variant * top)
 
 
     if (tr_variantDictFindInt (top, TR_KEY_bandwidth_priority, &i)
-        /*&& tr_isPriority (i)*/)
+            /*&& tr_isPriority (i)*/)
     {
         printf("TR_KEY_bandwidth_priority %" PRIu64 "\n", i);
     }
