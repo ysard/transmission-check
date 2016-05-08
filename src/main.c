@@ -10,32 +10,27 @@
 #include <signal.h>
 #include <string.h>
 #include <stdio.h>
-#include <stdlib.h> /* exit () */
+#include <stdlib.h> // exit()
 #include <time.h>
-
 // uint64_t on printf()
 // http://en.cppreference.com/w/cpp/types/integer
 #include <inttypes.h>
-
 #include <sys/types.h>
 #include <sys/stat.h> // stat()
 #include <ftw.h> // ftw()
 #include <regex.h> // regexec(), regerror(), regfree(), regcomp()
 #include <libgen.h> // basename()
-
 #include <errno.h>
 #include <unistd.h>
-
+// libtransmission
 #include <libtransmission/transmission.h>
 #include <libtransmission/variant.h>
-#include <libtransmission/tr-getopt.h>
-//#include <libtransmission/rpcimpl.h>
-//#include <libtransmission/utils.h>
-//#include <libtransmission/version.h>
+#include <libtransmission/tr-getopt.h> // command line parser
 
 #define MY_NAME "transmission-check"
 #define LONG_VERSION_STRING "0.1"
 
+// Global static variables
 static uint64_t total_size = 0;
 static int nb_repaired_inconsistencies = 0;
 
@@ -64,6 +59,9 @@ static const char * getUsage (void)
 
 static int parseCommandLine (int argc, const char ** argv)
 {
+    /* Command line parser provided by transmission project
+     */
+
     int c;
     const char * optarg;
 
@@ -109,7 +107,8 @@ static int parseCommandLine (int argc, const char ** argv)
 int is_file_or_dir_exists(const char *path)
 {
     /* Detect if the given file/directory exists.
-     * Return 0 if does not exist. 1,2 or 3 if exists and is a directory, symlink, regular file.
+     * Return 0 if does not exist or if the type is unknown/not supported.
+     * Return 1,2 or 3 if exists and is a directory, symlink or regular file.
      */
 
     struct stat info;
@@ -280,6 +279,7 @@ void check_dates(tr_variant * top, char ** full_path, bool force_date_update, bo
 
                 nb_repaired_inconsistencies++;
             } else {
+                // Just inform that an erroneous date was encountered...
                 printf("Erroneous added date detected !\n");
             }
         }
@@ -299,6 +299,7 @@ void check_dates(tr_variant * top, char ** full_path, bool force_date_update, bo
 
                 nb_repaired_inconsistencies++;
             } else {
+                // Just inform that an erroneous date was encountered...
                 printf("Erroneous done date detected !\n");
             }
         }
@@ -312,19 +313,10 @@ void check_dates(tr_variant * top, char ** full_path, bool force_date_update, bo
     }*/
 }
 
-/*
-void check_sizes(tr_variant * top, char ** full_path, bool make_changes)
-{
-
-
-
-
-}
-*/
 
 void reset_peers(tr_variant * top)
 {
-    /* Reset peers in resume file.
+    /* Reset peers in the resume file.
      */
 
     size_t len;
@@ -348,6 +340,16 @@ void reset_peers(tr_variant * top)
 
 void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
 {
+    /* Verify if file/directory of the torrent matches the resume filename.
+     * If not, we try to infer the original name from the name of the resume filename.
+     * In this case, nb_repaired_inconsistencies is incremented.
+     * Note: If nb_repaired_inconsistencies is incremented here,
+     * full_path variable must be updated with the new inferred file
+     * (and we have to verify of the inferred file exists).
+     * Note: Since corrupted resume files get their dates from the bad pointed file,
+     * dates must also be updated, even if they are correct (above 1970 ...).
+     */
+
     size_t len;
     int err = 0;
     regex_t preg;
@@ -381,7 +383,7 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
         nmatch = preg.re_nsub;
         pmatch = malloc (sizeof (*pmatch) * nmatch);
 
-        // Now, we know that there are n matches.
+        // Now, we know that there are nmatch matches.
         if (pmatch) {
 
             match = regexec (&preg, resume_filename, nmatch, pmatch, 0);
@@ -390,11 +392,10 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
             if (match == 0) {
 
                 char * inferred_file = NULL;
-                //char * suffix = NULL;
                 int start = pmatch[0].rm_so;
                 //int end = pmatch[0].rm_eo;
                 //size_t size = end - start;
-
+                //char * suffix = NULL;
                 /*
                 suffix = malloc (sizeof (*suffix) * (size + 1));
 
@@ -409,7 +410,7 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
                 //printf("suffix found at position %d\n", start);
                 //printf("%s\n", resume_filename);
 
-                // 0 to x included, where x is the position of the first character of the suffix
+                // get [0;x] included, where x is the position of the first character of the suffix
                 inferred_file = malloc (sizeof (*inferred_file) * (start + 1));
 
                 if (inferred_file) {
@@ -434,6 +435,8 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
                 exit(EXIT_FAILURE);
 
             } else {
+                // Regex error handling
+
                 char *text;
                 size_t size;
 
@@ -478,19 +481,19 @@ void replace_dir(tr_variant * top, const char old[], const char new[])
     if (tr_variantDictFindStr (top, TR_KEY_destination, &str, &len)) {
 
         start = strstr(str, old);
-        /*printf("%s\n", str);
-         *
-         *       printf("addr: %d %c\n", start, *start);
-         *       printf("case 0 %d, %c\n", str, str[0]);
-         *       printf("addr+1: %d, %c\n", start+1, *(start+1));
-         *       printf("last addr: %d, %c\n", start+strlen(old), *(start+strlen(old)));
-         *       printf("diff %d\n", strlen(str) - strlen(old) + strlen(new) + 1);*/
+        /* printf("original dest: %s\n", str);
+         * printf("addr: %d %c\n", start, *start);
+         * printf("addr+1: %d, %c\n", start+1, *(start+1));
+         * printf("original dest index 0: %d, %c\n", str, str[0]);
+         * printf("suffix start addr: %d, %c\n", start+strlen(old), *(start+strlen(old)));
+         * printf("suffix end addr: %d, %c\n", str + strlen(str), *(str + strlen(str)));
+         * printf("alloc size %d\n", strlen(str) - strlen(old) + strlen(new) + 1);
+         */
 
         if(start) {
 
             size_t prefix_length = start - str;
             char * suffix_start_addr = start + strlen(old);
-            // char * suffix_end_addr = str + strlen(str);
 
             new_path = calloc((strlen(str) - strlen(old) + strlen(new) + 1), sizeof(*new_path));
 
@@ -521,6 +524,10 @@ void replace_dir(tr_variant * top, const char old[], const char new[])
 
 void read_resume_file(tr_variant * top)
 {
+    /* Display informations taken from the resume file.
+     * Note: This is not exhaustive.
+     */
+
     size_t len;
     int64_t  i;
     const char * str;
@@ -532,12 +539,11 @@ void read_resume_file(tr_variant * top)
     printf("   Resume file informations   \n");
     printf("==============================\n\n");
 
-
+    // Directories/files
     if ((tr_variantDictFindStr (top, TR_KEY_destination, &str, &len))
         && (str && *str))
     {
         printf("TR_KEY_destination %s\n", str);
-        //tr_strndup (str, len);
     }
 
     if ((tr_variantDictFindStr (top, TR_KEY_incomplete_dir, &str, &len))
@@ -551,10 +557,10 @@ void read_resume_file(tr_variant * top)
         printf("TR_KEY_name %s\n", str);
     }
 
+    // DL/UP stats & state
     if (tr_variantDictFindInt (top, TR_KEY_downloaded, &i))
     {
         printf("TR_KEY_downloaded %" PRIu64 "\n", i);
-        //tr_variantDictAddInt (top, TR_KEY_downloaded, i + 1024);
     }
 
     if (tr_variantDictFindInt (top, TR_KEY_uploaded, &i))
@@ -562,16 +568,22 @@ void read_resume_file(tr_variant * top)
         printf("TR_KEY_uploaded %" PRIu64 "\n", i);
     }
 
-    if (tr_variantDictFindInt (top, TR_KEY_max_peers, &i))
-    {
-        printf("TR_KEY_max_peers %" PRIu64 "\n", i);
-    }
-
     if (tr_variantDictFindBool (top, TR_KEY_paused, &boolVal))
     {
         printf("TR_KEY_paused %d\n", boolVal);
     }
 
+    if (tr_variantDictFindInt (top, TR_KEY_seeding_time_seconds, &i))
+    {
+        printf("TR_KEY_seeding_time_seconds %" PRIu64 "\n", i);
+    }
+
+    if (tr_variantDictFindInt (top, TR_KEY_downloading_time_seconds, &i))
+    {
+        printf("TR_KEY_downloading_time_seconds %" PRIu64 "\n", i);
+    }
+
+    // Timestamped informations
     if (tr_variantDictFindInt (top, TR_KEY_added_date, &i))
     {
         struct tm instant;
@@ -596,15 +608,7 @@ void read_resume_file(tr_variant * top)
         printf("%d/%d/%d ; %d:%d:%d\n", instant.tm_mday+1, instant.tm_mon+1, instant.tm_year+1900, instant.tm_hour, instant.tm_min, instant.tm_sec);
     }
 
-    if (tr_variantDictFindInt (top, TR_KEY_seeding_time_seconds, &i))
-    {
-        printf("TR_KEY_seeding_time_seconds %" PRIu64 "\n", i);
-    }
 
-    if (tr_variantDictFindInt (top, TR_KEY_downloading_time_seconds, &i))
-    {
-        printf("TR_KEY_downloading_time_seconds %" PRIu64 "\n", i);
-    }
 
     if (tr_variantDictFindInt (top, TR_KEY_bandwidth_priority, &i)
         /*&& tr_isPriority (i)*/)
@@ -612,7 +616,11 @@ void read_resume_file(tr_variant * top)
         printf("TR_KEY_bandwidth_priority %" PRIu64 "\n", i);
     }
 
-
+    // Limits (speed & peers)
+    if (tr_variantDictFindInt (top, TR_KEY_max_peers, &i))
+    {
+        printf("TR_KEY_max_peers %" PRIu64 "\n", i);
+    }
 
     if (tr_variantDictFindDict (top, TR_KEY_speed_limit_up, &dict))
     {
@@ -650,11 +658,7 @@ void read_resume_file(tr_variant * top)
             printf("\tTR_KEY_use_global_speed_limit %d\n", boolVal);
     }
 
-
-    /*
-     i *f (fieldsToLoad & TR_FR_PEERS)
-     fieldsLoaded |= loadPeers (top, tor);
-     */
+    // Peers list
     const uint8_t * str_8;
 
     if (tr_variantDictFindRaw (top, TR_KEY_peers2, &str_8, &len))
@@ -666,7 +670,12 @@ void read_resume_file(tr_variant * top)
     {
         printf("TR_KEY_peers2_6 %zu bytes\n", len);
     }
-    /*
+
+
+    /* Fields not supported (yet)
+     i **f (fieldsToLoad & TR_FR_PEERS)
+     fieldsLoaded |= loadPeers (top, tor);
+
      i *f (fieldsToLoad & TR_FR_FILE_PRIORITIES)
      fieldsLoaded |= loadFilePriorities (top, tor);
 
@@ -687,9 +696,9 @@ void read_resume_file(tr_variant * top)
 
      if (fieldsToLoad & TR_FR_NAME)
          fieldsLoaded |= loadName (top, tor);
-
      */
 
+    /*
     tr_variant * list;
 
     if (tr_variantDictFindList (top, TR_KEY_files, &list))
@@ -708,12 +717,14 @@ void read_resume_file(tr_variant * top)
             }
         }
     }
+    */
 }
 
 
 void repair_resume_file(tr_variant * top, char resume_filename[], bool make_changes)
 {
-
+    /* Repair entry point
+     */
 
     printf("\n==============================\n");
     printf("        Repair attempts       \n");
@@ -722,6 +733,8 @@ void repair_resume_file(tr_variant * top, char resume_filename[], bool make_chan
 
     bool force_date_update = false;
     char * full_path = NULL;
+
+    // Get the path of downloaded files
     get_uploaded_files_path(top, &full_path);
     printf("Full path: %s\n", full_path);
 
@@ -732,20 +745,27 @@ void repair_resume_file(tr_variant * top, char resume_filename[], bool make_chan
     // If not, we update the full path and plan to force the update of dates
     // with the dates of the new directory
     if (nb_repaired_inconsistencies > 0) {
+        // Free memory
         free(full_path);
+        // Get new full path
         get_uploaded_files_path(top, &full_path);
         printf("REPAIR: New full path: %s\n", full_path);
+        // Force update of dates
         force_date_update = true;
     }
 
+    // Check existence of downloaded files
     check_uploaded_files(&full_path);
+
+    // Check dates
     check_dates(top, &full_path, force_date_update, make_changes);
 
     // If there are inconsistencies, the file is corrupted => cleaning step
+    // Reset peers list
     if ((nb_repaired_inconsistencies > 0) && make_changes)
         reset_peers(top);
-    //check_sizes(&top, &full_path, make_changes);
 
+    // What was done
     if (make_changes)
         printf("Repaired inconsistencies: %d\n", nb_repaired_inconsistencies);
     else
@@ -781,9 +801,6 @@ int main (int argc, char ** argv)
     char * resume_filename = NULL;
     tr_variant top;
     int err;
-    // Get the basename of the resume file
-    resume_filename = basename((char*)resume_file); // cast to non-const
-    //printf("resume file: %s\n", resume_filename);
 
     // Load the resume file in memory
     if (tr_variantFromFile (&top, TR_VARIANT_FMT_BENC, resume_file))
@@ -802,6 +819,10 @@ int main (int argc, char ** argv)
 
     // Repair or replace directory ?
     if (replace[0] == NULL) {
+        // Get the basename of the resume file
+        resume_filename = basename((char*)resume_file); // cast to non-const
+        //printf("resume file: %s\n", resume_filename);
+
         // Repair attempts
         repair_resume_file(&top, resume_filename, make_changes);
     } else {
