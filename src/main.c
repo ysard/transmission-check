@@ -17,17 +17,14 @@ along with transmission-check.  If not, see <http://www.gnu.org/licenses/>.
 Copyright 2016 Ysard
 */
 
-// Fix "stat: Value too large for defined data type"
-#define _FILE_OFFSET_BITS 64
+#define _FILE_OFFSET_BITS 64 // Fix warning "stat: Value too large for defined data type"
 #include <locale.h>
 #include <signal.h>
 #include <string.h> // strlen(), strstr(), strcmp()
 #include <stdio.h> // fprintf(), printf()
 #include <stdlib.h> // exit(), EXIT_FAILURE, EXIT_SUCCESS
 #include <time.h> // ctime(), localtime()
-// uint64_t on printf()
-// http://en.cppreference.com/w/cpp/types/integer
-#include <inttypes.h>
+#include <inttypes.h> // http://en.cppreference.com/w/cpp/types/integer - uint64_t on printf()
 #include <sys/types.h>
 #include <sys/stat.h> // stat()
 #include <ftw.h> // ftw()
@@ -42,6 +39,8 @@ Copyright 2016 Ysard
 
 #define MY_NAME "transmission-check"
 #define LONG_VERSION_STRING "0.1"
+#define PRINT_MEMORY_ERROR() fprintf(stderr, "ERROR: Insufficient memory\n\n");
+
 
 // Global static variables
 static uint64_t total_size = 0;
@@ -242,12 +241,49 @@ void get_uploaded_files_path(tr_variant * top, char ** full_path)
                 exit(EXIT_FAILURE);
             }
         } else {
-            fprintf (stderr, "ERROR: Insufficient memory\n\n");
+            PRINT_MEMORY_ERROR()
             exit(EXIT_FAILURE);
         }
 
     } else {
         fprintf(stderr, "ERROR: Resume file: TR_KEY_destination could not be read !\n");
+    }
+}
+
+
+void update_dates(tr_variant * top, char date_name[], const tr_quark date_type,
+                  int64_t old_timestamp, time_t new_timestamp,
+                  bool force_date_update, bool make_changes)
+{
+    /* Update the dates according to the given parameters:
+     * old_timestamp is replaced by new_timestamp
+     * if make_changes is true:
+     * and date is erroneous
+     * or force_date_update is true
+     *
+     * The date type (key in tr_variant dict is given by 'date_type';
+     * the name of the manipulated date is given by the string 'date_name'.
+     *
+     * In case of replacement, new date is the last file modification date.
+     */
+
+    struct tm instant;
+
+    instant = *localtime((time_t*)&old_timestamp);
+    // printf("%s date: %s %" PRIu64 "\n", date_name, ctime(&old_timestamp), old_timestamp);
+
+    // Change date if it is Erroneous or if force_date_update is set to true
+    if (instant.tm_year + 1900 == 1970 || force_date_update) {
+
+        if (make_changes) {
+            tr_variantDictAddInt(top, date_type, new_timestamp);
+            printf("REPAIR: Erroneous %s date: Updated to modification date: %s", date_name, ctime((time_t*)&new_timestamp));
+
+            nb_repaired_inconsistencies++;
+        } else {
+            // Just inform that an erroneous date was encountered...
+            printf("Erroneous %s date detected !\n", date_name);
+        }
     }
 }
 
@@ -260,9 +296,7 @@ void check_dates(tr_variant * top, char ** full_path, bool force_date_update, bo
 
     struct stat sb;
     int err = 0;
-    int64_t  i;
-    struct tm instant;
-
+    int64_t  old_timestamp;
 
     err = stat(*full_path, &sb);
 
@@ -278,52 +312,19 @@ void check_dates(tr_variant * top, char ** full_path, bool force_date_update, bo
     printf("Last file modification:   %s", ctime(&sb.st_mtime));
     */
 
-    if (tr_variantDictFindInt (top, TR_KEY_added_date, &i))
+    if (tr_variantDictFindInt (top, TR_KEY_added_date, &old_timestamp))
     {
-        instant = *localtime((time_t*)&i);
-        //printf("TR_KEY_added_date %s %" PRIu64 "\n", ctime(&i), i);
-
-        // Change date if it is Erroneous or if force_date_update is set to true
-        if ((instant.tm_year + 1900 == 1970) || force_date_update) {
-            // temps exec / added date => file ?? modif...
-            if (make_changes) {
-                tr_variantDictAddInt(top, TR_KEY_added_date, sb.st_mtime);
-                printf("REPAIR: Erroneous added date: Updated to modification date: %s", ctime((time_t*)&i));
-
-                nb_repaired_inconsistencies++;
-            } else {
-                // Just inform that an erroneous date was encountered...
-                printf("Erroneous added date detected !\n");
-            }
-        }
+        update_dates(top, "added", TR_KEY_added_date,
+                     old_timestamp, sb.st_mtime,
+                     force_date_update, make_changes);
     }
 
-    if (tr_variantDictFindInt (top, TR_KEY_done_date, &i))
+    if (tr_variantDictFindInt (top, TR_KEY_done_date, &old_timestamp))
     {
-        instant = *localtime((time_t*)&i);
-        //printf("TR_KEY_done_date %s %" PRIu64 "\n", ctime(&i), i);
-
-        // Change date if it is Erroneous or if force_date_update is set to true
-        if (instant.tm_year + 1900 == 1970 || force_date_update) {
-            // temps exec / done date => file modif
-            if (make_changes) {
-                tr_variantDictAddInt(top, TR_KEY_added_date, sb.st_mtime);
-                printf("REPAIR: Erroneous done date: Updated to modification date: %s", ctime((time_t*)&i));
-
-                nb_repaired_inconsistencies++;
-            } else {
-                // Just inform that an erroneous date was encountered...
-                printf("Erroneous done date detected !\n");
-            }
-        }
+        update_dates(top, "done", TR_KEY_done_date,
+                     old_timestamp, sb.st_mtime,
+                     force_date_update, make_changes);
     }
-
-    /*
-    if (tr_variantDictFindInt (top, TR_KEY_activity_date, &i))
-    {
-        instant=*localtime((time_t*)&i);
-        printf("TR_KEY_activity_date %s \b%" PRIu64 "\n", ctime((time_t*)&i), i);
-    }*/
 }
 
 
@@ -439,12 +440,12 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
                     // Deallocate memory
                     free(inferred_file);
                 } else {
-                    fprintf (stderr, "ERROR: Insufficient memory\n\n");
+                    PRINT_MEMORY_ERROR()
                     exit(EXIT_FAILURE);
                 }
 
             } else if (match == REG_NOMATCH) {
-                fprintf (stderr, "ERROR: Resume file has an incorrect name !\n");
+                fprintf(stderr, "ERROR: Resume file has an incorrect name !\n");
                 exit(EXIT_FAILURE);
 
             } else {
@@ -458,21 +459,21 @@ void check_correct_files_pointed(tr_variant * top, const char resume_filename[])
 
                 if (text) {
 
-                    regerror (err, &preg, text, size);
-                    fprintf (stderr, "ERROR: Regex: %s\n", text);
+                    regerror(err, &preg, text, size);
+                    fprintf(stderr, "ERROR: Regex: %s\n", text);
 
                     // Free memory
                     free(text);
 
                 } else {
-                    fprintf (stderr, "ERROR: Insufficient memory\n\n");
+                    PRINT_MEMORY_ERROR()
                     exit(EXIT_FAILURE);
                 }
             }
             // Free memory
             free(pmatch);
         } else {
-            fprintf (stderr, "ERROR: Insufficient memory\n\n");
+            PRINT_MEMORY_ERROR()
             exit(EXIT_FAILURE);
         }
     }
@@ -527,7 +528,7 @@ void replace_dir(tr_variant * top, const char old[], const char new[])
                 nb_repaired_inconsistencies++;
                 free(new_path);
             } else {
-                fprintf (stderr, "ERROR: Insufficient memory\n\n");
+                PRINT_MEMORY_ERROR()
                 exit(EXIT_FAILURE);
             }
         } else {
@@ -601,26 +602,17 @@ void read_resume_file(tr_variant * top)
     // Timestamped informations
     if (tr_variantDictFindInt (top, TR_KEY_added_date, &i))
     {
-        struct tm instant;
-        instant=*localtime((time_t*)&i);
-        printf("TR_KEY_added_date %" PRIu64 "\n", i);
-        printf("%d/%d/%d ; %d:%d:%d\n", instant.tm_mday+1, instant.tm_mon+1, instant.tm_year+1900, instant.tm_hour, instant.tm_min, instant.tm_sec);
+        printf("TR_KEY_added_date %" PRIu64 ": %s", i, ctime((time_t*)&i));
     }
 
     if (tr_variantDictFindInt (top, TR_KEY_done_date, &i))
     {
-        printf("TR_KEY_done_date %" PRIu64 "\n", i);
-        struct tm instant;
-        instant=*localtime((time_t*)&i);
-        printf("%d/%d/%d ; %d:%d:%d\n", instant.tm_mday+1, instant.tm_mon+1, instant.tm_year+1900, instant.tm_hour, instant.tm_min, instant.tm_sec);
+        printf("TR_KEY_done_date %" PRIu64 ": %s", i, ctime((time_t*)&i));
     }
 
     if (tr_variantDictFindInt (top, TR_KEY_activity_date, &i))
     {
-        printf("TR_KEY_activity_date %" PRIu64 "\n", i);
-        struct tm instant;
-        instant=*localtime((time_t*)&i);
-        printf("%d/%d/%d ; %d:%d:%d\n", instant.tm_mday+1, instant.tm_mon+1, instant.tm_year+1900, instant.tm_hour, instant.tm_min, instant.tm_sec);
+        printf("TR_KEY_activity_date %" PRIu64 ": %s", i, ctime((time_t*)&i));
     }
 
 
@@ -762,9 +754,11 @@ void repair_resume_file(tr_variant * top, char resume_filename[], bool make_chan
     if (nb_repaired_inconsistencies > 0) {
         // Free memory
         free(full_path);
+
         // Get new full path
         get_uploaded_files_path(top, &full_path);
         printf("REPAIR: New full path: %s\n", full_path);
+
         // Force update of dates
         force_date_update = true;
     }
@@ -780,7 +774,7 @@ void repair_resume_file(tr_variant * top, char resume_filename[], bool make_chan
     if ((nb_repaired_inconsistencies > 0) && make_changes)
         reset_peers(top);
 
-    // What was done
+    // What was done according to make_changes value
     if (make_changes)
         printf("Repaired inconsistencies: %d\n", nb_repaired_inconsistencies);
     else
@@ -793,10 +787,13 @@ void repair_resume_file(tr_variant * top, char resume_filename[], bool make_chan
 
 int main (int argc, char ** argv)
 {
+    char * resume_filename = NULL;
+    tr_variant top;
+    int err;
+
 
     if (parseCommandLine (argc, (const char**)argv))
         return EXIT_FAILURE;
-
 
     if (showVersion)
     {
@@ -813,10 +810,6 @@ int main (int argc, char ** argv)
     }
 
 
-    char * resume_filename = NULL;
-    tr_variant top;
-    int err;
-
     // Load the resume file in memory
     if (tr_variantFromFile (&top, TR_VARIANT_FMT_BENC, resume_file))
     {
@@ -825,7 +818,7 @@ int main (int argc, char ** argv)
     }
 
 
-    // Load infos from resume file & show parameters
+    // Load data from resume file & show parameters (verbose mode)
     if (verbose) {
         printf("Parameters: show version: %d, make changes: %d, resume file: %s,  replace old: %s, replace new: %s\n",
                showVersion, make_changes, resume_file, replace[0], replace[1]);
