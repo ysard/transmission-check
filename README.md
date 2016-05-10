@@ -48,6 +48,7 @@ can edit/replace the directory where files are downloaded.
 
 * Apply all changes
 
+    :::console
     # Stop transmission daemon
     sudo service transmission-daemon stop
 
