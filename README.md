@@ -15,15 +15,15 @@ can edit/replace the directory where files are downloaded.
 
 * Corrupted torrents
 
-    ![corrupted torrents](./doc_images/1.png)
+    ![corrupted torrents](./doc/doc_images/1.png)
 
 * 1 entry is legitimate,
 
-    ![corrupted torrents](./doc_images/3.png)
+    ![corrupted torrents](./doc/doc_images/3.png)
 
 * the other is corrupted
 
-    ![corrupted torrents](./doc_images/2.png)
+    ![corrupted torrents](./doc/doc_images/2.png)
 
 
 ## How to
